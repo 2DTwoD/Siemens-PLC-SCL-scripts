@@ -1,0 +1,93 @@
+FUNCTION_BLOCK medianFilter
+TITLE = 'medianFilter'
+NAME : 'median'
+VERSION : '1.0'
+//KNOW_HOW_PROTECT
+AUTHOR : 'DDS'
+VAR_INPUT
+    plug{S7_dynamic:='true';
+         S7_string_0:='filtered';
+         S7_string_1:='bypass';
+         S7_read_back:='true'}: BOOL;//Filter bypass
+    newVal{S7_dynamic:='true';
+           S7_read_back:='true'}: REAL;//PV input
+    bufferSize{S7_dynamic:='true';
+               S7_read_back:='true'}: INT;//Size of buffer for filter
+END_VAR
+VAR_OUTPUT
+    out{S7_dynamic:='true'}: REAL;//Filtered value
+    qBufferSize{S7_dynamic:='true'}: INT;//Current buffer size
+END_VAR
+VAR_TEMP
+    i:INT;
+    incI: INT;
+    decI: INT;
+    buffTmp: REAL;
+END_VAR
+VAR
+    count: INT := 1;
+    oldBufferSize: INT := 0;
+    buffer: ARRAY[1 .. 100] OF REAL;
+END_VAR
+       
+    IF bufferSize < 3 THEN
+        bufferSize := 3;
+    ELSIF bufferSize > 100 THEN
+        bufferSize := 100;
+    END_IF;
+    qBufferSize := bufferSize;
+    
+    IF bufferSize <> oldBufferSize THEN
+        i := 1;
+        WHILE i <= bufferSize DO
+            buffer[i] := newVal;
+            i := i + 1;
+        END_WHILE;
+        oldBufferSize := bufferSize;
+    END_IF;
+    
+    IF plug THEN
+        out := newVal;
+        RETURN;
+    END_IF;
+    IF (count > bufferSize) THEN
+        count := 1;
+    END_IF;
+    IF (count = 100) THEN
+        i := 0;
+    END_IF;
+    buffer[count] := newVal;
+    i := count;
+    
+    incI := i + 1;
+    IF (incI > bufferSize) THEN
+        incI := 100;
+    END_IF;
+    
+    decI := i - 1;
+    IF (decI < 1) THEN
+        decI := 1;
+    END_IF;
+    
+    IF (buffer[i] > buffer[incI]) THEN    
+        WHILE (i < bufferSize) DO
+            IF (buffer[i] > buffer[i + 1]) THEN
+                buffTmp := buffer[i];
+                buffer[i] := buffer[i + 1];
+                buffer[i + 1] := buffTmp;
+            END_IF;
+            i := i + 1;
+        END_WHILE;
+    ELSIF (buffer[i] < buffer[decI]) THEN    
+        WHILE (i > 1) DO
+            IF (buffer[i] < buffer[i - 1]) THEN
+                buffTmp := buffer[i];
+                buffer[i] := buffer[i - 1];
+                buffer[i - 1] := buffTmp;
+            END_IF;
+            i := i - 1;
+        END_WHILE;
+    END_IF;
+    count := count + 1;
+    out := buffer[(bufferSize / 2) + 1];
+END_FUNCTION_BLOCK

@@ -1,0 +1,57 @@
+FUNCTION_BLOCK smoothDelta
+TITLE = 'smoothDelta'
+NAME : 'smooth'
+VERSION : '1.0'
+//KNOW_HOW_PROTECT
+AUTHOR : 'DDS'
+VAR_INPUT
+    bypass{S7_dynamic:='true';
+         S7_string_0:='smooth';
+         S7_string_1:='bypass';
+         S7_read_back:='true'}: BOOL;//Block bypass
+    PV  {S7_dynamic:='true';
+         S7_read_back:='true'}: REAL;//PV
+    SP  {S7_dynamic:='true';
+         S7_read_back:='true'}: REAL;//SP
+    power{S7_dynamic:='true';
+          S7_read_back:='true'}: REAL;//Smooth power (0 - 1)
+    gain {S7_dynamic:='true';
+          S7_read_back:='true'}: REAL;//Smooth gain (0 - 100)
+END_VAR
+        
+VAR_OUTPUT
+    out{S7_dynamic:='true'}: REAL;//Smooth value ( = SP + gain * (abs(PV - SP))^power)
+    qPower{S7_dynamic:='true'}: REAL;//Active power
+    qGain{S7_dynamic:='true'}: REAL;//Active gain
+    qBypass{S7_dynamic:='true'}: BOOL;//Block in bypass
+END_VAR
+
+VAR_TEMP
+    delta: REAL;
+END_VAR
+
+    IF(power > 1.0) THEN
+        power := 1.0;
+    ELSIF power < 0.0 THEN
+        power := 0.0;
+    END_IF;
+    IF(gain > 100.0) THEN
+        gain := 100.0;
+    ELSIF gain < 0.0 THEN
+        gain := 0.0;
+    END_IF;
+    qBypass := bypass;
+    qPower := power;
+    qGain := gain;
+    IF (bypass OR PV = SP) THEN
+        out := PV;
+        RETURN;
+    END_IF;
+    delta := gain * (ABS(PV - SP))**power;
+    IF (PV > SP) THEN
+        out := SP + delta;
+    ELSE
+        out := SP - delta;
+    END_IF;
+    
+END_FUNCTION_BLOCK

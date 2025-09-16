@@ -1,0 +1,166 @@
+TYPE ANY_STRUCT
+    STRUCT
+        serieCode: BYTE;
+        dataType: BYTE;
+        length: INT;
+        dbNum: WORD;
+        memoryArea: BYTE;
+        locationByte1: BYTE;
+        locationByte2: BYTE;
+        locationByte3: BYTE;
+    END_STRUCT
+END_TYPE
+
+
+
+FUNCTION getAnyStruct: ANY_STRUCT
+VAR_INPUT
+    db_number: INT;
+    byte_num: INT;
+    bit_num: INT;
+    length: INT;
+END_VAR
+
+VAR_IN_OUT
+    par_err: BOOL;
+END_VAR
+
+VAR_TEMP
+    result: ANY_STRUCT;
+END_VAR
+
+    par_err := par_err OR (db_number <= 0) OR (byte_num < 0) OR (bit_num < 0) OR (bit_num > 7) OR (length <= 0);
+    
+    result.serieCode := 16#10;
+    result.dataType := 16#02;
+    result.length := length;
+    result.dbNum := INT_TO_WORD(db_number);
+    result.memoryArea := 16#84;
+    result.locationByte1 := WORD_TO_BYTE(SHR(IN := INT_TO_WORD(byte_num), N := 13));
+    result.locationByte2 := WORD_TO_BYTE(SHR(IN := INT_TO_WORD(byte_num), N := 5));
+    result.locationByte3 := SHL(IN := INT_TO_BYTE(byte_num), N := 3) OR INT_TO_BYTE(bit_num); 
+    getAnyStruct := result;
+END_FUNCTION
+
+
+
+FUNCTION_BLOCK putGetCom
+TITLE = 'putGetCom'
+NAME : 'putGetCom'
+VERSION : '1.0'
+//KNOW_HOW_PROTECT
+AUTHOR : 'DDS'
+
+VAR_INPUT
+    req: BOOL;
+    com_id{S7_dynamic:='true';
+           S7_read_back:='true'}: WORD;
+    get_addr_db_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    get_addr_byte_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    get_addr_bit_num{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+    get_rd_db_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    get_rd_byte_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    get_rd_bit_num{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+    get_length_bytes{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+    put_addr_db_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    put_addr_byte_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    put_addr_bit_num{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+    put_sd_db_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    put_sd_byte_num{S7_dynamic:='true';
+           S7_read_back:='true'}: INT;
+    put_sd_bit_num{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+    put_length_bytes{S7_dynamic:='true';
+           S7_read_back:='true'}:INT;
+END_VAR
+VAR_OUTPUT
+    get_error{S7_dynamic:='true'}: BOOL;
+    put_error{S7_dynamic:='true'}: BOOL;
+    put_done{S7_dynamic:='true'}: BOOL;
+    get_status{S7_dynamic:='true'}: WORD;
+    put_status{S7_dynamic:='true'}: WORD;
+END_VAR
+VAR
+    get_fb: GET;
+    put_fb: PUT;
+    old_req: BOOL;
+    (*get_addr_copy: ANY_STRUCT;
+    get_rd_copy: ANY_STRUCT;
+    put_addr_copy: ANY_STRUCT;
+    put_sd_copy: ANY_STRUCT;*)
+
+END_VAR
+VAR_TEMP
+    get_addr: ANY_STRUCT;
+    get_addr_ptr AT get_addr: ANY;
+    get_rd: ANY_STRUCT;
+    get_rd_ptr AT get_rd: ANY;
+    put_addr: ANY_STRUCT;
+    put_addr_ptr AT put_addr: ANY;
+    put_sd: ANY_STRUCT;
+    put_sd_ptr AT put_sd: ANY;
+    err: BOOL;
+END_VAR
+
+    IF req AND NOT old_req THEN
+        err := false;
+        get_addr := getAnyStruct(db_number := get_addr_db_num,
+                                 byte_num := get_addr_byte_num,
+                                 bit_num := get_addr_bit_num,
+                                 length := get_length_bytes,
+                                 par_err := err);   
+                                                     
+        get_rd := getAnyStruct(db_number := get_rd_db_num,
+                               byte_num := get_rd_byte_num,
+                               bit_num := get_rd_bit_num,
+                               length := get_length_bytes,
+                               par_err := err);
+                               
+        put_addr := getAnyStruct(db_number := put_addr_db_num,
+                                 byte_num := put_addr_byte_num,
+                                 bit_num := put_addr_bit_num,
+                                 length := put_length_bytes,
+                                 par_err := err);
+                                 
+        put_sd := getAnyStruct(db_number := put_sd_db_num,
+                               byte_num := put_sd_byte_num,
+                               bit_num := put_sd_bit_num,
+                               length := put_length_bytes,
+                               par_err := err);
+        IF NOT err THEN
+           get_fb(REQ := true,
+                  ID := com_id,
+                  ADDR_1 := get_addr_ptr,
+                  RD_1 := get_rd_ptr);
+           put_fb(REQ := true,
+                  ID := com_id,
+                  ADDR_1 := put_addr_ptr,
+                  SD_1 := put_sd_ptr);
+        END_IF;
+    ELSE
+        get_fb(REQ := false);   
+        put_fb(REQ := false);
+    END_IF;
+    old_req := req;
+    get_error := get_fb.ERROR;
+    get_status := get_fb.STATUS;
+    put_done := put_fb.DONE;
+    put_error := put_fb.ERROR;
+    put_status := put_fb.STATUS;      
+    (*get_addr_copy := get_addr;
+    get_rd_copy := get_rd;
+    put_addr_copy := put_addr;
+    put_sd_copy := put_sd;*)
+    
+END_FUNCTION_BLOCK

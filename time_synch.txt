@@ -1,0 +1,44 @@
+FUNCTION_BLOCK timeSynch
+{S7_m_c := 'true';
+S7_tasklist:='OB1'}
+VAR_Input
+  //часы с WinCC
+  Hrs{S7_m_c := 'true'}:WORD:=0;
+  //минуты с WinCC
+  Mnts{S7_m_c := 'true'}:WORD:=0;
+  //секунды с WinCC
+  Scnds{S7_m_c := 'true'}:WORD:=0;
+  //миллисекунды с WinCC
+  mScnds{S7_m_c := 'true'}:WORD:=0;
+  //бит запуска обновления времени
+  go_bit{S7_m_c := 'true'}:BOOL:=false;
+END_VAR
+VAR_TEMP
+  //переменная статуса системных функций
+  rv:INT;
+  //Дата и время для ПЛК
+  DT_v:DT;
+  DT_v_ar AT DT_v:ARRAY [0..7] OF BYTE;
+  //Переменные для перевода в BCD
+  tmp_wrd:WORD;
+  tmp_wrd_ar AT tmp_wrd:ARRAY[0..1] OF BYTE;
+END_VAR
+//запускать обновление только с разрешения WinCC
+IF go_bit THEN
+    //Считывание времени с ПЛК
+    rv:=READ_CLK(CDT:=DT_v);
+    //Конвертация времени из WinCC в BCD для записи системного времени в ПЛК
+    tmp_wrd:=INT_TO_BCD(WORD_TO_INT(Hrs));
+    DT_v_ar[3]:=tmp_wrd_ar[1];
+    tmp_wrd:=INT_TO_BCD(WORD_TO_INT(Mnts));
+    DT_v_ar[4]:=tmp_wrd_ar[1];
+    tmp_wrd:=INT_TO_BCD(WORD_TO_INT(Scnds));
+    DT_v_ar[5]:=tmp_wrd_ar[1];
+    tmp_wrd:=INT_TO_BCD(WORD_TO_INT(mScnds)/10);
+    DT_v_ar[6]:=tmp_wrd_ar[1];
+    //Запись времени в ПЛК
+    rv:=SET_CLK(PDT:=DT_v);
+    //Сброс бита разрешения обновления
+    go_bit:=false;
+END_IF;
+END_FUNCTION_BLOCK
