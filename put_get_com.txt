@@ -88,6 +88,7 @@ VAR_OUTPUT
     get_error{S7_dynamic:='true'}: BOOL;
     put_error{S7_dynamic:='true'}: BOOL;
     put_done{S7_dynamic:='true'}: BOOL;
+    par_error{S7_dynamic:='true'}: BOOL;
     get_status{S7_dynamic:='true'}: WORD;
     put_status{S7_dynamic:='true'}: WORD;
 END_VAR
@@ -110,35 +111,34 @@ VAR_TEMP
     put_addr_ptr AT put_addr: ANY;
     put_sd: ANY_STRUCT;
     put_sd_ptr AT put_sd: ANY;
-    err: BOOL;
 END_VAR
 
     IF req AND NOT old_req THEN
-        err := false;
+        par_error := false;
         get_addr := getAnyStruct(db_number := get_addr_db_num,
                                  byte_num := get_addr_byte_num,
                                  bit_num := get_addr_bit_num,
                                  length := get_length_bytes,
-                                 par_err := err);   
+                                 par_err := par_error);   
                                                      
         get_rd := getAnyStruct(db_number := get_rd_db_num,
                                byte_num := get_rd_byte_num,
                                bit_num := get_rd_bit_num,
                                length := get_length_bytes,
-                               par_err := err);
+                               par_err := par_error);
                                
         put_addr := getAnyStruct(db_number := put_addr_db_num,
                                  byte_num := put_addr_byte_num,
                                  bit_num := put_addr_bit_num,
                                  length := put_length_bytes,
-                                 par_err := err);
+                                 par_err := par_error);
                                  
         put_sd := getAnyStruct(db_number := put_sd_db_num,
                                byte_num := put_sd_byte_num,
                                bit_num := put_sd_bit_num,
                                length := put_length_bytes,
-                               par_err := err);
-        IF NOT err THEN
+                               par_err := par_error);
+        IF NOT par_error THEN
            get_fb(REQ := true,
                   ID := com_id,
                   ADDR_1 := get_addr_ptr,
@@ -164,3 +164,5 @@ END_VAR
     put_sd_copy := put_sd;*)
     
 END_FUNCTION_BLOCK
+
+
